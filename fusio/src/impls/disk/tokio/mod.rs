@@ -2,13 +2,13 @@
 pub mod fs;
 
 use std::{io::SeekFrom, ptr::slice_from_raw_parts};
-
+use std::future::Future;
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
 };
 
-use crate::{buf::IoBufMut, Error, IoBuf, Read, Seek, Write};
+use crate::{buf::IoBufMut, Error, IoBuf, MaybeSend, Read, Seek, Write};
 
 impl Write for File {
     async fn write_all<B: IoBuf>(&mut self, buf: B) -> (Result<(), Error>, B) {
@@ -48,6 +48,13 @@ impl Read for File {
 
     async fn read_to_end(&mut self, mut buf: Vec<u8>) -> (Result<(), Error>, Vec<u8>) {
         match AsyncReadExt::read_to_end(self, &mut buf).await {
+            Ok(_) => (Ok(()), buf),
+            Err(e) => (Err(Error::Io(e)), buf),
+        }
+    }
+
+    async fn read_exact<B: IoBufMut>(&mut self, mut buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
+        match AsyncReadExt::read_exact(self, &mut buf).await {
             Ok(_) => (Ok(()), buf),
             Err(e) => (Err(Error::Io(e)), buf),
         }

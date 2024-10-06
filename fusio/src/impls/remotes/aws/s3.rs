@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::sync::Arc;
 
 use bytes::Buf;
@@ -10,15 +11,10 @@ use http_body_util::{BodyExt, Empty, Full};
 use percent_encoding::utf8_percent_encode;
 
 use super::{options::S3Options, S3Error, STRICT_PATH_ENCODE_SET};
-use crate::{
-    buf::IoBufMut,
-    path::Path,
-    remotes::{
-        aws::sign::Sign,
-        http::{DynHttpClient, HttpClient, HttpError},
-    },
-    Error, IoBuf, Read, Seek, Write,
-};
+use crate::{buf::IoBufMut, path::Path, remotes::{
+    aws::sign::Sign,
+    http::{DynHttpClient, HttpClient, HttpError},
+}, Error, IoBuf, MaybeSend, Read, Seek, Write};
 
 pub struct S3File {
     options: Arc<S3Options>,
@@ -212,6 +208,10 @@ impl Read for S3File {
                 Err(e) => (Err(e.into()), buf),
             }
         }
+    }
+
+    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
+        todo!()
     }
 }
 

@@ -1,9 +1,10 @@
 #[cfg(feature = "fs")]
 pub mod fs;
 
+use std::future::Future;
 use monoio::fs::File;
 
-use crate::{buf::IoBufMut, Error, IoBuf, Read, Seek, Write};
+use crate::{buf::IoBufMut, Error, IoBuf, MaybeSend, Read, Seek, Write};
 
 #[repr(transparent)]
 struct MonoioBuf<B> {
@@ -116,6 +117,25 @@ impl Read for MonoioFile {
         match result {
             Ok(_) => {
                 self.pos += buf.buf.len() as u64;
+                (Ok(()), buf.buf)
+            }
+            Err(e) => (Err(Error::from(e)), buf.buf),
+        }
+    }
+
+    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
+        let bytes_to_read = buf.bytes_init();
+
+        let (result, buf) = self
+            .file
+            .as_ref()
+            .expect("read file after closed")
+            .read_exact_at(MonoioBuf { buf }, self.pos)
+            .await;
+
+        match result {
+            Ok(_) => {
+                self.pos += bytes_to_read as u64;
                 (Ok(()), buf.buf)
             }
             Err(e) => (Err(Error::from(e)), buf.buf),
