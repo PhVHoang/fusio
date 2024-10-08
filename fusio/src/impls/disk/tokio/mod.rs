@@ -55,7 +55,7 @@ impl Read for File {
 
     async fn read_exact<B: IoBufMut>(&mut self, mut buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
         match AsyncReadExt::read_exact(self, &mut buf).await {
-            Ok(_) => (Ok(()), buf),
+            Ok(size) => (Ok(size as u64), buf),
             Err(e) => (Err(Error::Io(e)), buf),
         }
     }

@@ -80,7 +80,7 @@ impl Read for S3File {
         };
 
         if !response.status().is_success() {
-            (
+            return (
                 Err(S3Error::from(HttpError::HttpNotSuccess {
                     status: response.status(),
                     body: String::from_utf8_lossy(
@@ -96,23 +96,23 @@ impl Read for S3File {
                 .into()),
                 buf,
             )
-        } else {
-            match response.into_body().collect().await.map_err(S3Error::from) {
-                Ok(body) => {
-                    if let Err(e) = std::io::Read::read_exact(
-                        &mut body.aggregate().reader(),
-                        buf.as_slice_mut(),
-                    ) {
-                        return (Err(e.into()), buf);
-                    }
-                }
-                Err(e) => return (Err(e.into()), buf),
-            }
-
-            let size = buf.as_slice().len() as u64;
-            self.pos += size;
-            (Ok(size), buf)
         }
+
+        match response.into_body().collect().await.map_err(S3Error::from) {
+            Ok(body) => {
+                if let Err(e) = std::io::Read::read_exact(
+                    &mut body.aggregate().reader(),
+                    buf.as_slice_mut(),
+                ) {
+                    return (Err(e.into()), buf);
+                }
+            }
+            Err(e) => return (Err(e.into()), buf),
+        }
+
+        let size = buf.as_slice().len() as u64;
+        self.pos += size;
+        (Ok(size), buf)
     }
 
     async fn size(&self) -> Result<u64, Error> {
@@ -210,8 +210,9 @@ impl Read for S3File {
         }
     }
 
-    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
-        todo!()
+    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<u64, Error>, B)> + MaybeSend {
+        // For S3File, the read behavior is always read exactly
+        self.read(buf).await
     }
 }
 

@@ -74,7 +74,7 @@ pub trait Read: MaybeSend + MaybeSync {
     fn read_exact<B: IoBufMut>(
         &mut self,
         buf: B
-    ) -> impl Future<Output = (Result<(), Error>, B)> + MaybeSend;
+    ) -> impl Future<Output = (Result<u64, Error>, B)> + MaybeSend;
 
     fn size(&self) -> impl Future<Output = Result<u64, Error>> + MaybeSend;
 }
@@ -218,12 +218,13 @@ mod tests {
             }
         }
 
-        async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
+        async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<u64, Error>, B)> + MaybeSend {
             let (result, buf) = self.r.read_exact(buf).await;
+            let bytes_init = buf.bytes_init();
             match result {
                 Ok(()) => {
-                    self.cnt += buf.bytes_init();
-                    (Ok(()), buf)
+                    self.cnt += bytes_init;
+                    (Ok(bytes_init as u64), buf)
                 }
                 Err(e) => (Err(e), buf),
             }

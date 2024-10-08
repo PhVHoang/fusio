@@ -123,7 +123,7 @@ impl Read for MonoioFile {
         }
     }
 
-    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<(), Error>, B)> + MaybeSend {
+    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> impl Future<Output=(Result<u64, Error>, B)> + MaybeSend {
         let bytes_to_read = buf.bytes_init();
 
         let (result, buf) = self
@@ -136,7 +136,7 @@ impl Read for MonoioFile {
         match result {
             Ok(_) => {
                 self.pos += bytes_to_read as u64;
-                (Ok(()), buf.buf)
+                (Ok(bytes_to_read as u64), buf.buf)
             }
             Err(e) => (Err(Error::from(e)), buf.buf),
         }
