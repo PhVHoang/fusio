@@ -30,6 +30,11 @@ impl<'read> Read for Box<dyn DynFile + 'read> {
         DynRead::read_to_end(self.as_mut(), buf).await
     }
 
+    async fn read_exact<B: IoBufMut>(&mut self, buf: B) -> (Result<(), Error>, Vec<u8>) {
+        let (_, buf) = DynRead::read_exact(self.as_mut(), unsafe { buf.to_buf_mut_nocopy() }).await;
+        (Ok(()), unsafe { B::recover_from_buf_mut(buf) })
+    }
+
     async fn size(&self) -> Result<u64, Error> {
         DynRead::size(self.as_ref()).await
     }
